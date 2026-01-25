@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { AsyncAPIDocumentInterface } from '@asyncapi/parser';
 
-import { SpecificationHelpers } from '../../helpers';
+import { SpecificationHelpers, DiffHelper, scrollIntoViewById } from '../../helpers';
 import { ErrorObject, PropsSchema } from '../../types';
 import { ConfigInterface, defaultConfig } from '../../config';
 
@@ -16,12 +16,14 @@ export interface AsyncApiProps {
 
 interface AsyncAPIState {
   asyncapi?: AsyncAPIDocumentInterface;
+  previousAsyncapi?: AsyncAPIDocumentInterface;
   error?: ErrorObject;
 }
 
 class AsyncApiComponent extends Component<AsyncApiProps, AsyncAPIState> {
   state: AsyncAPIState = {
     asyncapi: undefined,
+    previousAsyncapi: undefined,
     error: undefined,
   };
 
@@ -30,7 +32,10 @@ class AsyncApiComponent extends Component<AsyncApiProps, AsyncAPIState> {
 
     const parsedSpec = SpecificationHelpers.retrieveParsedSpec(props.schema);
     if (parsedSpec) {
-      this.state = { asyncapi: parsedSpec };
+      this.state = {
+        asyncapi: parsedSpec,
+        previousAsyncapi: undefined,
+      };
     }
   }
 
@@ -45,7 +50,9 @@ class AsyncApiComponent extends Component<AsyncApiProps, AsyncAPIState> {
     const newSchema = this.props.schema;
 
     if (oldSchema !== newSchema) {
-      this.updateState(newSchema);
+      // Store previous asyncapi before updating
+      const previousAsyncapi = this.state.asyncapi;
+      this.updateState(newSchema, previousAsyncapi);
     }
   }
 
@@ -88,16 +95,46 @@ class AsyncApiComponent extends Component<AsyncApiProps, AsyncAPIState> {
       );
     }
 
-    return <AsyncApiLayout asyncapi={asyncapi} config={concatenatedConfig} />;
+    return (
+      <AsyncApiLayout
+        asyncapi={asyncapi}
+        config={concatenatedConfig}
+      />
+    );
   }
 
-  private updateState(schema: PropsSchema) {
+  private updateState(
+    schema: PropsSchema,
+    previousAsyncapi?: AsyncAPIDocumentInterface,
+  ) {
     const parsedSpec = SpecificationHelpers.retrieveParsedSpec(schema);
     if (!parsedSpec) {
-      this.setState({ asyncapi: undefined });
+      this.setState({
+        asyncapi: undefined,
+        previousAsyncapi: undefined,
+      });
       return;
     }
-    this.setState({ asyncapi: parsedSpec });
+
+    // If we have a previous document, compute and log the changes
+    if (previousAsyncapi) {
+      const changes = DiffHelper.calculateDiff(previousAsyncapi, parsedSpec);
+      // Log changes between consecutive documents
+      // eslint-disable-next-line no-console
+      console.log('AsyncAPI document changes (previous -> current):', changes);
+      if (changes.length > 0) {
+        console.log("scrolling into view: ",changes[0].sectionId)
+        scrollIntoViewById(changes[0].sectionId)
+      }
+    }
+    
+    // On initial load, set previousAsyncapi to current to avoid false positives on next change
+    const updatedPreviousAsyncapi = previousAsyncapi ?? parsedSpec;
+
+    this.setState({
+      asyncapi: parsedSpec,
+      previousAsyncapi: updatedPreviousAsyncapi,
+    });
   }
 }
 

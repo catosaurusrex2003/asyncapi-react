@@ -5,3 +5,5 @@ export * from './specification';
 export * from './server';
 export * from './message';
 export * from './schema';
+export * from './diff';
+export * from './scroll';

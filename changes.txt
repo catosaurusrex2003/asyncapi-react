@@ -1,0 +1,12 @@
+no need for the minimap in this version
+only scroll to the component that just got edited from the diff
+check in studio if there is something similar for scrolling to the change
+
+
+find the id of the thing which changed from the changes
+but the problem is
+when you scroll to a specific part. there is a offset.
+the offset seems to be equal to the total height of the code blocks found above the element
+Another problem is that all the stuff in the rendered jsx have not got appropriate id given,
+to them so it is hard to find
+for example an anonymous-schema-3 will not be given this id in the UI

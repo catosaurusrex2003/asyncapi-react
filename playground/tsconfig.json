@@ -23,6 +23,7 @@
     "target": "ES2017"
   },
   "include": [
+    "next.config.mjs",
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",

@@ -531,7 +531,7 @@ export class SchemaHelpers {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): any {
     // visitedInPath should never be passed as parameter.
-    // it is meant for internal recursion limit tracking (tracks objects visited in current path only)
+    // it is meant for internal recursion limit tracking (add on entry, delete in finally)
     if (value === undefined || value === null) {
       return {
         type: 'string',
@@ -552,41 +552,43 @@ export class SchemaHelpers {
       };
     }
 
+    const valueObject = value as object;
+
     // Check if this object is already in the current path (circular reference)
-    if (visitedInPath.has(value as object)) {
+    if (visitedInPath.has(valueObject)) {
       throw new Error(
         'too much recursion. Please check document for recursion.',
       );
     }
 
-    // Create a new path that includes the current object
-    // This allows the same object to appear in different branches without being flagged
-    const newVisitedInPath = new Set(visitedInPath);
-    newVisitedInPath.add(value as object);
-
-    if (this.isJSONSchema(value)) {
-      return value;
-    }
-    if (Array.isArray(value)) {
+    visitedInPath.add(valueObject);
+    try {
+      if (this.isJSONSchema(value)) {
+        return value;
+      }
+      if (Array.isArray(value)) {
+        return {
+          type: 'array',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          items: value.map((v) => this.jsonFieldToSchema(v, visitedInPath)),
+          [this.extRenderAdditionalInfo]: false,
+        };
+      }
       return {
-        type: 'array',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        items: value.map((v) => this.jsonFieldToSchema(v, newVisitedInPath)),
+        type: 'object',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        properties: Object.entries(value).reduce(
+          (acc, [k, v]) => {
+            acc[k] = this.jsonFieldToSchema(v, visitedInPath);
+            return acc;
+          },
+          {} as Record<string, unknown>,
+        ),
         [this.extRenderAdditionalInfo]: false,
       };
+    } finally {
+      visitedInPath.delete(valueObject);
     }
-    return {
-      type: 'object',
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      properties: Object.entries(value).reduce(
-        (obj, [k, v]) => {
-          obj[k] = this.jsonFieldToSchema(v, newVisitedInPath);
-          return obj;
-        },
-        {} as Record<string, unknown>,
-      ),
-      [this.extRenderAdditionalInfo]: false,
-    };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
